@@ -1,0 +1,43 @@
+name: Cleanup old artifacts
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Delete old workflow artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cutoff_epoch=$(date -u -d '7 days ago' +%s)
+          deleted=0
+
+          while IFS=$'\t' read -r id name created_at expired; do
+            [[ -n "${id:-}" ]] || continue
+
+            if [[ "${expired}" == "true" ]]; then
+              echo "Skipping expired artifact ${id} (${name})"
+              continue
+            fi
+
+            created_epoch=$(date -u -d "${created_at}" +%s)
+            if (( created_epoch < cutoff_epoch )); then
+              echo "Deleting artifact ${id} (${name}) created_at=${created_at}"
+              gh api --method DELETE "repos/${REPO}/actions/artifacts/${id}" >/dev/null
+              deleted=$((deleted + 1))
+            fi
+          done < <(gh api --paginate "repos/${REPO}/actions/artifacts?per_page=100" --jq '.artifacts[] | [.id, .name, .created_at, (.expired|tostring)] | @tsv')
+
+          echo "Deleted ${deleted} artifact(s) older than 7 days"

@@ -85,6 +85,7 @@ jobs:
         with:
           name: kilo-cli
           path: packages/opencode/dist
+          retention-days: 3
 
     outputs:
       version: ${{ needs.version.outputs.version }}
@@ -123,6 +124,7 @@ jobs:
         with:
           name: kilo-vscode
           path: packages/kilo-vscode/out
+          retention-days: 3
 
   # build-tauri:
   #   needs:
